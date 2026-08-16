@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EVA Device Bridge</string>
+    <string name="accessibility_service_label">EVA Device Bridge</string>
+    <string name="accessibility_service_description">
+        Lets EVA (running in Termux) read the screen and perform taps/typing on
+        your behalf, entirely on-device over a localhost-only connection.
+        No data leaves the phone.
+    </string>
+</resources>

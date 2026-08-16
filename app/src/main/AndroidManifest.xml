@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Required by Android even for 127.0.0.1-only sockets; loopback traffic
+         is still subject to the per-UID INTERNET permission check. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Lets the app query whether its own Accessibility Service is enabled,
+         so MainActivity can show accurate status instead of guessing. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
+        android:exported="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The whole bridge lives inside this one service. Android keeps an
+             enabled AccessibilityService's process alive for as long as the
+             service is toggled on in Settings, which is exactly the lifetime
+             we want for the embedded HTTP server -- no separate foreground
+             service or persistent notification needed. -->
+        <service
+            android:name=".EvaAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true"
+            android:label="@string/accessibility_service_label">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+    </application>
+</manifest>
