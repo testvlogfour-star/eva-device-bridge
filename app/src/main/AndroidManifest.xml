@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Required by Android even for 127.0.0.1-only sockets; loopback traffic
-         is still subject to the per-UID INTERNET permission check. -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Lets the app query whether its own Accessibility Service is enabled,
-         so MainActivity can show accurate status instead of guessing. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
@@ -25,11 +20,6 @@
             </intent-filter>
         </activity>
 
-        <!-- The whole bridge lives inside this one service. Android keeps an
-             enabled AccessibilityService's process alive for as long as the
-             service is toggled on in Settings, which is exactly the lifetime
-             we want for the embedded HTTP server -- no separate foreground
-             service or persistent notification needed. -->
         <service
             android:name=".EvaAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
