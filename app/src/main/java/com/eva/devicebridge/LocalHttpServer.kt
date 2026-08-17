@@ -4,39 +4,6 @@ import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 
-/**
- * The local IPC channel between this app and the Python side running in
- * Termux.
- *
- * WHY LOCALHOST HTTP:
- *   - Termux and this app are separate processes/UIDs with no shared
- *     storage or signing key, so in-process bindings (AIDL/Binder, a bound
- *     Service with a custom Messenger) would require Termux to hold a
- *     compiled interface definition and bind via an explicit component
- *     name -- doable, but noticeably more code and more fragile across
- *     Android versions than a socket.
- *   - A shared-file/polling bridge (write a request file, watch for a
- *     response file) is simple but adds directory-watching latency and
- *     race conditions (two processes touching the same file); it's also
- *     what Termux:API-style plugins do only because they route through
- *     Android's Intent/BroadcastReceiver system, which requires a
- *     *separate* Termux:API companion app to be installed too.
- *   - A plain TCP socket on 127.0.0.1 needs nothing else installed, is
- *     reachable from Termux with zero special permissions (Termux, like
- *     any app, can open outbound sockets to localhost), has the lowest
- *     latency of the three options, and -- critically -- loopback sockets
- *     are NOT sandboxed per-app on stock, non-rooted Android. Any app can
- *     connect to 127.0.0.1:<port> that any other app is listening on.
- *   - HTTP (via NanoHTTPD) on top of that raw socket buys us: painless
- *     binary transfer for screenshots (just write bytes to the response
- *     stream), trivial JSON request/response bodies via any Python
- *     `requests` call, and free debuggability -- `curl` or a browser can
- *     hit these endpoints directly while developing.
- *
- * SECURITY NOTE: the server is bound explicitly to "127.0.0.1", not
- * "0.0.0.0", so it is unreachable from the network/Wi-Fi interface --
- * only processes on the same device can talk to it.
- */
 class LocalHttpServer(private val service: EvaAccessibilityService) :
     NanoHTTPD("127.0.0.1", PORT) {
 
@@ -56,6 +23,7 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
                 "/long_press" -> handleLongPress(session)
                 "/type" -> handleType(session)
                 "/key" -> handleKey(session)
+                "/launch_app" -> handleLaunchApp(session)
                 else -> newFixedLengthResponse(
                     Response.Status.NOT_FOUND, "text/plain", "no such endpoint: ${session.uri}"
                 )
@@ -66,8 +34,6 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
             )
         }
     }
-
-    // ---- read-only endpoints -------------------------------------------
 
     private fun handleUiDump(): Response {
         val root = service.rootInActiveWindow
@@ -102,8 +68,6 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
             Response.Status.OK, "image/png", ByteArrayInputStream(png), png.size.toLong()
         )
     }
-
-    // ---- action endpoints (POST, JSON body) ------------------------------
 
     private fun handleTap(session: IHTTPSession): Response {
         val body = readJsonBody(session)
@@ -163,7 +127,23 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
         return actionResult(ok)
     }
 
-    // ---- helpers ---------------------------------------------------------
+    private fun handleLaunchApp(session: IHTTPSession): Response {
+        val body = readJsonBody(session)
+        val packageName = body.getString("package")
+        val launchIntent = service.packageManager.getLaunchIntentForPackage(packageName)
+            ?: return newFixedLengthResponse(
+                Response.Status.NOT_FOUND, "text/plain",
+                "no launchable activity found for package: $packageName"
+            )
+        launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        val ok = try {
+            service.startActivity(launchIntent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+        return actionResult(ok)
+    }
 
     private fun readJsonBody(session: IHTTPSession): JSONObject {
         val map = HashMap<String, String>()
@@ -180,4 +160,4 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
 
     private fun serviceUnavailable(reason: String): Response =
         newFixedLengthResponse(Response.Status.SERVICE_UNAVAILABLE, "text/plain", reason)
-}
+    }
