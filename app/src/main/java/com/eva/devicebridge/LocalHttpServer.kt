@@ -24,6 +24,7 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
                 "/type" -> handleType(session)
                 "/key" -> handleKey(session)
                 "/launch_app" -> handleLaunchApp(session)
+                "/list_apps" -> handleListApps()
                 else -> newFixedLengthResponse(
                     Response.Status.NOT_FOUND, "text/plain", "no such endpoint: ${session.uri}"
                 )
@@ -143,6 +144,21 @@ class LocalHttpServer(private val service: EvaAccessibilityService) :
             false
         }
         return actionResult(ok)
+    }
+
+    private fun handleListApps(): Response {
+        val pm = service.packageManager
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+        intent.addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        val resolveInfos = pm.queryIntentActivities(intent, 0)
+        val arr = org.json.JSONArray()
+        for (ri in resolveInfos) {
+            val obj = JSONObject()
+            obj.put("package", ri.activityInfo.packageName)
+            obj.put("label", ri.loadLabel(pm).toString())
+            arr.put(obj)
+        }
+        return newFixedLengthResponse(Response.Status.OK, "application/json", arr.toString())
     }
 
     private fun readJsonBody(session: IHTTPSession): JSONObject {
