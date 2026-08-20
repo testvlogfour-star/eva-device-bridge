@@ -1,18 +1,27 @@
 package com.eva.devicebridge
 
-import android.content.ComponentName
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var eyStatusText: TextView
+    private var pendingScript: String? = null
+
+    companion object {
+        private const val RUN_COMMAND_PERMISSION = "com.termux.permission.RUN_COMMAND"
+        private const val PERMISSION_REQUEST_CODE = 101
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,17 +38,44 @@ class MainActivity : AppCompatActivity() {
         }
 
         startEyButton.setOnClickListener {
-            runTermuxScript("eva_start.sh")
-            eyStatusText.text = "Status: starting..."
+            requestPermissionThenRun("eva_start.sh", "starting...")
         }
 
         stopEyButton.setOnClickListener {
-            runTermuxScript("eva_stop.sh")
-            eyStatusText.text = "Status: stopped"
+            requestPermissionThenRun("eva_stop.sh", "stopping...")
         }
     }
 
-    private fun runTermuxScript(scriptName: String) {
+    private fun requestPermissionThenRun(scriptName: String, statusLabel: String) {
+        if (ContextCompat.checkSelfPermission(this, RUN_COMMAND_PERMISSION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingScript = scriptName
+            ActivityCompat.requestPermissions(
+                this, arrayOf(RUN_COMMAND_PERMISSION), PERMISSION_REQUEST_CODE
+            )
+            eyStatusText.text = "Status: asking for Termux permission..."
+            return
+        }
+        runTermuxScript(scriptName, statusLabel)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            val script = pendingScript
+            pendingScript = null
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (script != null) runTermuxScript(script, "starting...")
+            } else {
+                eyStatusText.text = "Status: permission denied. Tap Start again and allow it."
+            }
+        }
+    }
+
+    private fun runTermuxScript(scriptName: String, statusLabel: String) {
         try {
             val intent = Intent()
             intent.setClassName("com.termux", "com.termux.app.RunCommandService")
@@ -49,7 +85,8 @@ class MainActivity : AppCompatActivity() {
                 "/data/data/com.termux/files/home/$scriptName"
             )
             intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
-            startForegroundService(intent)
+            ContextCompat.startForegroundService(this, intent)
+            eyStatusText.text = "Status: $statusLabel (command sent to Termux)"
         } catch (e: Exception) {
             eyStatusText.text = "Error: ${e.message}"
         }
