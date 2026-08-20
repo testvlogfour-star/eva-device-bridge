@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
         val openSettingsButton = findViewById<Button>(R.id.openSettingsButton)
         val startEyButton = findViewById<Button>(R.id.startEyButton)
         val stopEyButton = findViewById<Button>(R.id.stopEyButton)
+        val updateEyButton = findViewById<Button>(R.id.updateEyButton)
 
         openSettingsButton.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -43,6 +44,10 @@ class MainActivity : AppCompatActivity() {
 
         stopEyButton.setOnClickListener {
             requestPermissionThenRun("eva_stop.sh", "stopping...")
+        }
+
+        updateEyButton.setOnClickListener {
+            requestPermissionThenRun("eva_update.sh", "updating...")
         }
     }
 
@@ -102,7 +107,7 @@ class MainActivity : AppCompatActivity() {
         statusText.text = if (enabled) {
             "EVA Device Bridge is ENABLED.\nListening on 127.0.0.1:${LocalHttpServer.PORT}"
         } else {
-            "EVA Device Bridge is NOT enabled yet.\nTap below, then find \"EVA Device Bridge\" in the Accessibility list and turn it on."
+            "EVA Device Bridge is NOT enabled yet.\nTap below, then find \"EVA Device Bridge\" in the Accessibility list."
         }
     }
 
